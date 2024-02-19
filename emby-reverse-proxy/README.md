@@ -26,7 +26,7 @@ The articles assumes that:
 - The reverse proxy will run on the same machine as the Emby server (but you can change that)
 - The machine has Docker installed
 
-The article describes the usage of NGINX and Certbot containers.
+The article describes the usage of NGINX and [Certbot](https://certbot.eff.org/) containers.
 
 # Configuration Steps
 ## 1. DNS
@@ -140,6 +140,12 @@ Edit the user cron file  `crontab -e` (make sure you can run the docker without 
 Alternatively you can use the Watchtower to update your images: https://github.com/containrrr/watchtower  
 
 
-### 3.2 How to troubleshoot
+### 3.4 How to troubleshoot
 - Switch nginx WAF to monitoring mode: [nginx-start.sh](nginx-start.sh), `... -e MODSEC_RULE_ENGINE=DetectionOnly ...`
 - Velidate nginx container logs and reasons for blocks/errors. `docker logs nginx`
+- Adjust OWASP rules exclusions, if necessary (File: RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf)
+
+### References and useful links
+- Test security headers: https://securityheaders.com/
+- ModSecurity OWASP rules: https://github.com/coreruleset/coreruleset/tree/v4.0/dev/rules
+- How to tune the rules (exclusions): https://coreruleset.org/docs/concepts/false_positives_tuning/
