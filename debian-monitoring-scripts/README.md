@@ -1,26 +1,18 @@
-# debian_monitoring
-Collection of scripts to capture various information for performance and connectivity troubleshooting.
+Collection of scripts to capture various information for performance and connectivity troubleshooting.  
+
+Tailored for Debian 9.  
+  
 
 # Start/stop scripts
-## script_runall.sh
+## [script_runall.sh](./script_runall.sh)
 Offers an interactive dialog to start all or specific groups of scripts with default settings. Records PIDs to "pids" file.
 
-## script_killall.sh
+## [script_killall.sh](./script_killall.sh)
 Kills processes listed in "pids" file.
 
 # Docker performance
-## track_docker_disk_space.sh
-The script shows results of the 'df /storage/var/lib/docker/' command.
-
-OUTPUT EXAMPLE
-```
-datetime,         epoch,      Filesystem,              1K-blocks,  Used,     Available,  Use%, Mounted
-11-23-2020 19:37, 1606160247, /dev/mapper/cryptostore, 89874296,   12381940, 72883948,   15%,  /storage
-. . .
-```
-
-## track_container_stats.sh
-**sudo or a user in the docker group required.** 
+## [track_container_stats.sh](./track_container_stats.sh)
+**sudo or a user in the docker group required.**   
 
 THe script creates a CSV file for each running module with the following data:
 `{{.Name}},{{.ID}},{{.CPUPerc}}\t{{.MemUsage}},{{ .NetIO}},{{.MemPerc}},{{.BlockIO}},{{.PIDs}}`
@@ -42,7 +34,7 @@ datetime,epoch,NAME,CONTAINER ID,CPU %, MEM USAGE , LIMIT,NET I,O,MEM %,BLOCK I,
 
 
 # OS performance
-## track_os_stats.sh
+## [track_os_stats.sh](./track_os_stats.sh)
 CPU, RAM, SWAP details, root fs utilization.
 
 OUTPUT EXAMPLE
@@ -56,7 +48,7 @@ datetime,         epoch,      CPU_avg_1min, CPU_avg_5min, CPU_avg_15min, RAM,  S
 ```
 
 # Traffic on interfaces
-## track_interface_rates.sh
+## [track_interface_rates.sh](./track_interface_rates.sh)
 This script reports difference in received and transmitted bytes for each system interface every REFRESH_INTERVAL
 
 **PLEASE REMOVE FIRST AND LAST LINES FROM THE RESULTING CSV**
@@ -78,10 +70,10 @@ Time (sec) ens2 rx	 ens2 tx	enp0s10f0u2i8 rx	enp0s12f0u2i8 tx
 ```
 
 # General connectivity monitoring scripts
-## test_tracert.sh
+## [test_tracert.sh](./test_tracert.sh)
 Continuously performs "tracert" to 8.8.8.8 or a specified destination.
 
-## track_ping_test.sh
+## [track_ping_test.sh](./track_ping_test.sh)
 This script periodically pings a specified destination and plots the results to a CSV file 
 
 
@@ -97,7 +89,7 @@ datetime,            epoch,      status,  rtt(ms)
 11-23-2020 20:02:52, 1606161772, success, 16.674
 ```
 
-## track_curl_test.sh
+## [track_curl_test.sh](./track_curl_test.sh)
 This script periodically sends an HTTP GET to a specified destination and stores results to a CSV file. It is suited for tracking connectivity, but not network performance.
   
 STATUS:  
@@ -111,7 +103,7 @@ datetime,            epoch,     status
 . . .
 ```
 
-## track_curl_test_performance.sh
+## [track_curl_test_performance.sh](./track_curl_test_performance.sh)
 This script periodically sends an HTTP GET to a specified destination and stores results to a CSV file. It is suited for tracking connectivity and performance.
   
 Status:
@@ -129,7 +121,7 @@ datetime,            epoch,      status,  TCP(sec), DNS(sec), Total(sec)
 . . .
 ```
 
-## track_iftop_connections.sh
+## [track_iftop_connections.sh](./track_iftop_connections.sh)
 Repetedly record "iftop" output for eth0 or another specified interface.  
 
 Example of the output:
