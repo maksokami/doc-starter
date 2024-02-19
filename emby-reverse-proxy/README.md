@@ -20,13 +20,13 @@ end
 ```
 
 # Summary
-This article explain how to setup a reverse proxy to expose your home Emby server to the internet with TLS and minimal WAF (Web Application Firewall).  
+This article explains how to set up a reverse proxy to expose your home Emby server to the internet with TLS and a minimal Web Application Firewall (WAF).
 The articles assumes that:
 - You run your Emby server on a Linux machine.
-- Reverse proxy will run on the same machine as the Emby server 
+- The reverse proxy will run on the same machine as the Emby server (but you can change that)
 - The machine has Docker installed
 
-The article describes the usage of nginx and certbot containers.
+The article describes the usage of NGINX and Certbot containers.
 
 # Configuration Steps
 ## 1. DNS
