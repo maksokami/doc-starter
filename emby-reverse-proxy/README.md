@@ -64,16 +64,21 @@ $ ls -l /home/your-user/
   
 Create or download the files and customize the following parameters, as needed:
 - [default.conf](./default.conf) - Nginx Reverse Proxy configuration
+   - Emby IP address, port.
+   - DNS name of the reverse proxy
 - [RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf](./RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf) - WAF Rules exlusions for Emby Web UI
 - 50x.html, index.html, ... - Customize as you want
 - [nginx-start.sh](nginx-start.sh) - Script to start the nginx container
+   - Volume mount paths
 - [nginx-update.sh](nginx-update.sh) - Script to update the nginx container image
 - [certbot-get-cert.sh](certbot-get-cert.sh) - CertBot - get LetsEncrypt TLS certificate for your DNS name
+   - Volume mount paths
   - PUID - Your user's UID. Check the `id` command.
   - PGID - Your user's GID. Check the `id` command.
   - --email - Your valid email
   - -d - Your DNS name
 - [certbot-update-cert.sh](certbot-get-cert.sh) - CertBot - get LetsEncrypt TLS certificate for your DNS name
+   - Volume mount paths
   - PUID - Your user's UID. Check the `id` command.
   - PGID - Your user's GID. Check the `id` command.
 
@@ -107,7 +112,7 @@ Start the nginx container - `/home/your-user/nginx-start.sh`.
 
 ### 3.3 Automation
 **Start nginx on reboot - Cron**  
-Edit the user cron file  `crontba -e` (make sure you can run the docker without sude), or the sudo cron file: `sudo crontab -e`.   
+Edit the user cron file  `crontab -e` (make sure you can run the docker without sude), or the sudo cron file: `sudo crontab -e`.   
 ```sh
 ...
 @reboot sleep 120 && /home/your-user/nginx-start.sh
@@ -115,7 +120,7 @@ Edit the user cron file  `crontba -e` (make sure you can run the docker without 
 ```
 
 **Renew TLS certificate - Cron**  
-Edit the user cron file  `crontba -e` (make sure you can run the docker without sude), or the sudo cron file: `sudo crontab -e`.  
+Edit the user cron file  `crontab -e` (make sure you can run the docker without sude), or the sudo cron file: `sudo crontab -e`.  
 ```sh
 . . .
 # Run certbot every monday to attempt LetsEncrypt nginx TLS cert renewal (will only be renewed if it's about to expire)
@@ -123,7 +128,7 @@ Edit the user cron file  `crontba -e` (make sure you can run the docker without 
 . . .
 ```
 **Update nginx container image - 1. Cron**  
-Edit the user cron file  `crontba -e` (make sure you can run the docker without sude), or the sudo cron file: `sudo crontab -e`. 
+Edit the user cron file  `crontab -e` (make sure you can run the docker without sude), or the sudo cron file: `sudo crontab -e`. 
 ```sh
 . . .
 # Remove and re-download the latest nginx image
