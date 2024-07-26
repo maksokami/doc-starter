@@ -1,0 +1,714 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+		"location": {
+		  "type": "string",
+		  "defaultValue": "[resourceGroup().location]",
+		  "metadata": {
+			"description": "location for all resources."
+		  }
+		},
+        "routeTableName": {
+            "defaultValue": "rt-vms",
+            "type": "String"
+        },
+        "loadBalancerName": {
+            "defaultValue": "lb-vms",
+            "type": "String"
+        },
+        "vnetVMName": {
+            "defaultValue": "vnet-vms",
+            "type": "String"
+        },
+        "vnetFwName": {
+            "defaultValue": "fw-vnet",
+            "type": "String"
+        },
+        "bastionHostName": {
+            "defaultValue": "vnet-vm-bastion",
+            "type": "String"
+        },
+        "publicIPAddressBastion": {
+            "defaultValue": "pubip-bastion",
+            "type": "String"
+        },
+        "firewallPolicyName": {
+            "defaultValue": "fw-vm-policy",
+            "type": "String"
+        },
+        "publicIPAddressFW": {
+            "defaultValue": "pubip-fw",
+            "type": "String"
+        },
+        "networkSecurityGroupsVMs": {
+            "defaultValue": "nsg-vm-subnet",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Network/firewallPolicies",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('firewallPolicyName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "sku": {
+                    "tier": "Standard"
+                },
+                "threatIntelMode": "Alert",
+                "snat": {}
+            },
+            "resources": [
+                {
+                    "type": "ruleCollectionGroups",
+                    "apiVersion": "2022-07-01",
+                    "name": "DefaultNetworkRuleCollectionGroup",
+                    "location": "[parameters('location')]",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Network/firewallPolicies',parameters('firewallPolicyName'))]"
+                    ],
+                    "properties": {
+                        "priority": 200,
+                        "ruleCollections": [
+                            {
+                                "name": "Internet-To-VMs",
+                                "priority": 1002,
+                                "action": {
+                                    "type": "Allow"
+                                },
+                                "rules": [
+                            {
+                                "ruleType": "NetworkRule",
+                                "name": "TCP-443",
+                                "ipProtocols": [
+                                    "TCP"
+                                ],
+                                "sourceAddresses": [
+                                    "*"
+                                ],
+                                "sourceIpGroups": [],
+                                "destinationAddresses": [
+                                    "10.1.0.0/24"
+                                ],
+                                "destinationIpGroups": [],
+                                "destinationFqdns": [],
+                                "destinationPorts": [
+                                    "4443"
+                                ]
+                            }
+							],
+                                "ruleCollectionType": "FirewallPolicyFilterRuleCollection"
+                            },
+                            {
+                                "name": "VMs-To-Internet",
+                                "priority": 999,
+                                "action": {
+                                    "type": "Allow"
+                                },
+                                "rules": [
+                            {
+                                "ruleType": "NetworkRule",
+                                "name": "VM-NTP",
+                                "ipProtocols": [
+                                    "UDP"
+                                ],
+                                "sourceAddresses": [
+                                    "10.1.0.0/24"
+                                ],
+                                "sourceIpGroups": [],
+                                "destinationAddresses": [
+                                    "*"
+                                ],
+                                "destinationIpGroups": [],
+                                "destinationFqdns": [],
+                                "destinationPorts": [
+                                    "123"
+                                ]
+                            },
+                            {
+                                "ruleType": "NetworkRule",
+                                "name": "VM-DNS",
+                                "ipProtocols": [
+                                    "UDP",
+                                    "TCP"
+                                ],
+                                "sourceAddresses": [
+                                    "10.1.0.0/24"
+                                ],
+                                "sourceIpGroups": [],
+                                "destinationAddresses": [
+                                    "*"
+                                ],
+                                "destinationIpGroups": [],
+                                "destinationFqdns": [],
+                                "destinationPorts": [
+                                    "53"
+                                ]
+                            }
+								],
+                                "ruleCollectionType": "FirewallPolicyFilterRuleCollection"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "ruleCollectionGroups",
+                    "apiVersion": "2022-07-01",
+                    "name": "DefaultApplicationRuleCollectionGroup",
+                    "location": "[parameters('location')]",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Network/firewallPolicies',parameters('firewallPolicyName'))]",
+                        "[resourceId('Microsoft.Network/firewallPolicies/ruleCollectionGroups', parameters('firewallPolicyName'), 'DefaultNetworkRuleCollectionGroup')]"
+                    ],
+                    "properties": {
+                        "priority": 300,
+                        "ruleCollections": [
+                            {
+                                "name": "VMs-To-Internet",
+                                "priority": 1000,
+                                "action": {
+                                    "type": "Allow"
+                                },
+                                "rules": [
+                            {
+                                "ruleType": "ApplicationRule",
+                                "name": "To-Ubuntu",
+                                "protocols": [
+                                    {
+                                        "protocolType": "Http",
+                                        "port": 80
+                                    },
+                                    {
+                                        "protocolType": "Https",
+                                        "port": 443
+                                    }
+                                ],
+                                "fqdnTags": [],
+                                "webCategories": [],
+                                "targetFqdns": [
+                                    "*.ubuntu.com",
+                                    "*.launchpadcontent.net"
+                                ],
+                                "targetUrls": [],
+                                "terminateTLS": false,
+                                "sourceAddresses": [
+                                    "*"
+                                ],
+                                "destinationAddresses": [],
+                                "sourceIpGroups": [],
+                                "httpHeadersToInsert": []
+                            },
+                            {
+                                "ruleType": "ApplicationRule",
+                                "name": "To-Docker",
+                                "protocols": [
+                                    {
+                                        "protocolType": "Http",
+                                        "port": 80
+                                    },
+                                    {
+                                        "protocolType": "Https",
+                                        "port": 443
+                                    }
+                                ],
+                                "fqdnTags": [],
+                                "webCategories": [],
+                                "targetFqdns": [
+                                    "*.docker.io",
+                                    "*.docker.com",
+                                    "*.segment.io",
+                                    "*.segment.com",
+                                    "*.wootric.com",
+                                    "*.bugsnag.com",
+                                    "cdn.auth0.com"
+                                ],
+                                "targetUrls": [],
+                                "terminateTLS": false,
+                                "sourceAddresses": [
+                                    "*"
+                                ],
+                                "destinationAddresses": [],
+                                "sourceIpGroups": [],
+                                "httpHeadersToInsert": []
+                            },
+                            {
+                                "ruleType": "ApplicationRule",
+                                "name": "Troubleshoot-Internet-Access",
+                                "protocols": [
+                                    {
+                                        "protocolType": "Http",
+                                        "port": 80
+                                    }
+                                ],
+                                "fqdnTags": [],
+                                "webCategories": [],
+                                "targetFqdns": [
+                                    "ipinfo.io",
+                                    "ifconfig.me"
+                                ],
+                                "targetUrls": [],
+                                "terminateTLS": false,
+                                "sourceAddresses": [
+                                    "*"
+                                ],
+                                "destinationAddresses": [],
+                                "sourceIpGroups": [],
+                                "httpHeadersToInsert": []
+                            }
+                        ],
+                                "ruleCollectionType": "FirewallPolicyFilterRuleCollection"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "ruleCollectionGroups",
+                    "apiVersion": "2022-07-01",
+                    "name": "DefaultDnatRuleCollectionGroup",
+                    "location": "[parameters('location')]",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Network/firewallPolicies',parameters('firewallPolicyName'))]",
+                        "[resourceId('Microsoft.Network/firewallPolicies/ruleCollectionGroups', parameters('firewallPolicyName'), 'DefaultApplicationRuleCollectionGroup')]",
+						"[resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressFW'))]"
+                    ],
+                    "properties": {
+                        "priority": 100,
+                        "ruleCollections": [
+                            {
+                                "name": "fw-rc-dnat",
+                                "priority": 1000,
+                                "action": {
+                                    "type": "Dnat"
+                                },
+                                "rules": [
+                            {
+                                "ruleType": "NatRule",
+                                "name": "Internet-to-Internal-Load-Balancer",
+                                "translatedAddress": "10.1.0.5",
+                                "translatedPort": "443",
+                                "ipProtocols": [
+                                    "TCP",
+                                    "UDP"
+                                ],
+                                "sourceAddresses": [
+                                    "*"
+                                ],
+                                "sourceIpGroups": [],
+                                "destinationAddresses": [
+                                    "[reference(resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressFW'))).IpAddress]"
+                                ],
+                                "destinationPorts": [
+                                    "443"
+                                ]
+                            }
+								],
+                                "ruleCollectionType": "FirewallPolicyNatRuleCollection"
+                            }
+                        ]
+                    }
+                }
+		]},
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('networkSecurityGroupsVMs')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "securityRules": []
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('publicIPAddressFW')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Static",
+                "ddosSettings": {
+                    "protectionMode": "VirtualNetworkInherited"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('publicIPAddressBastion')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Static"
+            }
+        },
+        {
+            "type": "Microsoft.Network/routeTables",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('routeTableName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "disableBgpRoutePropagation": false,
+                "routes": [
+                    {
+                        "name": "Default-to-Firewall",
+                        "id": "[resourceId('Microsoft.Network/routeTables/routes', parameters('routeTableName'), 'Default-to-Firewall')]",
+                        "properties": {
+                            "addressPrefix": "0.0.0.0/0",
+                            "nextHopType": "VirtualAppliance",
+                            "nextHopIpAddress": "10.1.1.4",
+                            "hasBgpOverride": false
+                        },
+                        "type": "Microsoft.Network/routeTables/routes"
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/routeTables/routes",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('routeTableName'), '/Default-to-Firewall')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+            ],
+            "properties": {
+                "addressPrefix": "0.0.0.0/0",
+                "nextHopType": "VirtualAppliance",
+                "nextHopIpAddress": "10.1.1.4",
+                "hasBgpOverride": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('vnetVMName'), '/AzureBastionSubnet')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetVMName'))]"
+            ],
+            "properties": {
+                "addressPrefix": "10.1.1.64/26",
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('vnetVMName'), '/AzureFirewallSubnet')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetVMName'))]"
+            ],
+            "properties": {
+                "addressPrefixes": [
+                    "10.1.1.0/26"
+                ],
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled",
+                "defaultOutboundAccess": true
+            }
+        },
+        {
+            "type": "Microsoft.Network/bastionHosts",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('bastionHostName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddressBastion'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetVMName'), 'AzureBastionSubnet')]"
+            ],
+            "sku": {
+                "name": "Basic"
+            },
+            "properties": {
+                "dnsName": "bst-fd1f3dcb-0e80-4814-9052-0ca2cbb93f6e.bastion.azure.com",
+                "scaleUnits": 2,
+                "enableTunneling": false,
+                "enableIpConnect": false,
+                "disableCopyPaste": false,
+                "enableShareableLink": false,
+                "enableKerberos": false,
+                "ipConfigurations": [
+                    {
+                        "name": "IpConf",
+                        "id": "[concat(resourceId('Microsoft.Network/bastionHosts', parameters('bastionHostName')), '/bastionHostIpConfigurations/IpConf')]",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddressBastion'))]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetVMName'), 'AzureBastionSubnet')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/loadBalancers",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('loadBalancerName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetVMName'), 'VMs')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetVMName'))]"
+            ],
+            "sku": {
+                "name": "Standard",
+                "tier": "Regional"
+            },
+            "properties": {
+                "frontendIPConfigurations": [
+                    {
+                        "name": "lb-front-end-private-ip",
+                        "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('loadBalancerName')), '/frontendIPConfigurations/lb-front-end-private-ip')]",
+                        "properties": {
+                            "privateIPAddress": "10.1.0.5",
+                            "privateIPAllocationMethod": "Static",
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetVMName'), 'VMs')]"
+                            },
+                            "privateIPAddressVersion": "IPv4"
+                        },
+                        "zones": [
+                            "3",
+                            "1",
+                            "2"
+                        ]
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "lb-backend",
+                        "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', parameters('loadBalancerName'), 'lb-backend')]",
+                        "properties": {
+                            "loadBalancerBackendAddresses": [
+                                {
+                                    "name": "7844bbee-80d3-472e-a3e0-bdc3a3308a99",
+                                    "properties": {
+                                        "ipAddress": "10.1.0.6",
+                                        "virtualNetwork": {
+                                            "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetVMName'))]"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "name": "lb-rule1",
+                        "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('loadBalancerName')), '/loadBalancingRules/lb-rule1')]",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('loadBalancerName')), '/frontendIPConfigurations/lb-front-end-private-ip')]"
+                            },
+                            "frontendPort": 0,
+                            "backendPort": 0,
+                            "enableFloatingIP": false,
+                            "idleTimeoutInMinutes": 4,
+                            "protocol": "All",
+                            "enableTcpReset": false,
+                            "loadDistribution": "SourceIPProtocol",
+                            "disableOutboundSnat": true,
+                            "backendAddressPool": {
+                                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', parameters('loadBalancerName'), 'lb-backend')]"
+                            },
+                            "backendAddressPools": [
+                                {
+                                    "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', parameters('loadBalancerName'), 'lb-backend')]"
+                                }
+                            ],
+                            "probe": {
+                                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('loadBalancerName')), concat('/probes/', parameters('loadBalancerName'), '-health-probe'))]"
+                            }
+                        }
+                    }
+                ],
+                "probes": [
+                    {
+                        "name": "[concat(parameters('loadBalancerName'), '-health-probe')]",
+                        "id": "[concat(resourceId('Microsoft.Network/loadBalancers', parameters('loadBalancerName')), concat('/probes/', parameters('loadBalancerName'), '-health-probe'))]",
+                        "properties": {
+                            "protocol": "Http",
+                            "port": 8088,
+                            "requestPath": "/health/",
+                            "intervalInSeconds": 10,
+                            "numberOfProbes": 1,
+                            "probeThreshold": 1
+                        }
+                    }
+                ],
+                "inboundNatRules": [],
+                "outboundRules": [],
+                "inboundNatPools": []
+            }
+        },
+        {
+            "type": "Microsoft.Network/loadBalancers/backendAddressPools",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('loadBalancerName'), '/lb-backend')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/loadBalancers', parameters('loadBalancerName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetVMName'))]"
+            ],
+            "properties": {
+                "loadBalancerBackendAddresses": [
+                    {
+                        "name": "7844bbee-80d3-472e-a3e0-bdc3a3308a99",
+                        "properties": {
+                            "ipAddress": "10.1.0.6",
+                            "virtualNetwork": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetVMName'))]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('vnetVMName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupsVMs'))]",
+                "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.1.0.0/16"
+                    ]
+                },
+                "encryption": {
+                    "enabled": false,
+                    "enforcement": "AllowUnencrypted"
+                },
+                "subnets": [
+                    {
+                        "name": "AzureFirewallSubnet",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetVMName'), 'AzureFirewallSubnet')]",
+                        "properties": {
+                            "addressPrefixes": [
+                                "10.1.1.0/26"
+                            ],
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled",
+                            "defaultOutboundAccess": true
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    },
+                    {
+                        "name": "VMs",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetVMName'), 'VMs')]",
+                        "properties": {
+                            "addressPrefixes": [
+                                "10.1.0.0/24"
+                            ],
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupsVMs'))]"
+                            },
+                            "routeTable": {
+                                "id": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+                            },
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    },
+                    {
+                        "name": "AzureBastionSubnet",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetVMName'), 'AzureBastionSubnet')]",
+                        "properties": {
+                            "addressPrefix": "10.1.1.64/26",
+                            "delegations": [],
+                            "privateEndpointNetworkPolicies": "Disabled",
+                            "privateLinkServiceNetworkPolicies": "Enabled"
+                        },
+                        "type": "Microsoft.Network/virtualNetworks/subnets"
+                    }
+                ],
+                "virtualNetworkPeerings": [],
+                "enableDdosProtection": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/azureFirewalls",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('vnetFwName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddressFW'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetVMName'), 'AzureFirewallSubnet')]",
+                "[resourceId('Microsoft.Network/firewallPolicies', parameters('firewallPolicyName'))]",
+                "[resourceId('Microsoft.Network/firewallPolicies/ruleCollectionGroups',parameters('firewallPolicyName'), 'DefaultDnatRuleCollectionGroup' )]"
+            ],
+            "properties": {
+                "sku": {
+                    "name": "AZFW_VNet",
+                    "tier": "Standard"
+                },
+                "threatIntelMode": "Alert",
+                "additionalProperties": {},
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig",
+                        "id": "[concat(resourceId('Microsoft.Network/azureFirewalls', parameters('vnetFwName')), '/azureFirewallIpConfigurations/ipConfig')]",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddressFW'))]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetVMName'), 'AzureFirewallSubnet')]"
+                            }
+                        }
+                    }
+                ],
+                "networkRuleCollections": [],
+                "applicationRuleCollections": [],
+                "natRuleCollections": [],
+                "firewallPolicy": {
+                    "id": "[resourceId('Microsoft.Network/firewallPolicies', parameters('firewallPolicyName'))]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('vnetVMName'), '/VMs')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetVMName'))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupsVMs'))]",
+                "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+            ],
+            "properties": {
+                "addressPrefixes": [
+                    "10.1.0.0/24"
+                ],
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupsVMs'))]"
+                },
+                "routeTable": {
+                    "id": "[resourceId('Microsoft.Network/routeTables', parameters('routeTableName'))]"
+                },
+                "delegations": [],
+                "privateEndpointNetworkPolicies": "Disabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        }
+    ]
+}
