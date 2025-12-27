@@ -1,7 +1,7 @@
 services:
   hiddify:
     build: .
-    image: ghcr.io/hiddify/hiddify-manager:late
+    image: ghcr.io/hiddify/hiddify-manager:latest
     ports:
       - "80:80"
       - "443:443"
